@@ -173,6 +173,9 @@ def main():
                 sec = out.get("secondary") or []
                 if sec:
                     print(f"Secondary: {', '.join(sec)}")
+                subs = out.get("subtypes") or []
+                if subs:
+                    print(f"Subtypes: {', '.join(subs)}")
         return
 
     # rules mode
