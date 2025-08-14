@@ -148,16 +148,35 @@ def classify_issue(title: str, content: str, top_k: int = 1) -> Classification:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Samsung Device Issue Classifier (rule-based)")
+    ap = argparse.ArgumentParser(description="Samsung Device Issue Classifier")
     ap.add_argument("--title", required=True, help="Short issue title")
     ap.add_argument("--content", required=True, help="Detailed issue content/description")
-    ap.add_argument("--top-k", type=int, default=1, help="Return top-K categories (default 1)")
-    ap.add_argument("--explain", action="store_true", help="Show scores and matched keywords")
+    ap.add_argument("--mode", choices=["rules", "llm"], default="rules", help="Classifier mode: rule-based or LLM (default rules)")
+    ap.add_argument("--top-k", type=int, default=1, help="Return top-K categories (rules mode only)")
+    ap.add_argument("--explain", action="store_true", help="Show scores and matched keywords (rules mode)")
     ap.add_argument("--json", action="store_true", help="Print JSON output")
+    # LLM specific
+    ap.add_argument("--model", default=None, help="LLM model name (env OPENAI_MODEL used if not provided)")
+    ap.add_argument("--dry-run", action="store_true", help="LLM mode: print constructed prompt without calling the API")
     args = ap.parse_args()
 
-    result = classify_issue(args.title, args.content, top_k=max(1, args.top_k))
+    if args.mode == "llm":
+        from llm_classifier import classify_with_llm  # local import to avoid hard dep in rules mode
+        out = classify_with_llm(args.title, args.content, model=args.model, dry_run=args.dry_run)
+        if args.json or args.dry_run:
+            print(json.dumps(out, indent=2))
+        else:
+            if "prompt" in out:
+                print(json.dumps(out, indent=2))
+            else:
+                print(f"Primary: {out.get('primary')}")
+                sec = out.get("secondary") or []
+                if sec:
+                    print(f"Secondary: {', '.join(sec)}")
+        return
 
+    # rules mode
+    result = classify_issue(args.title, args.content, top_k=max(1, args.top_k))
     if args.json:
         print(json.dumps({
             "primary": result.primary,
